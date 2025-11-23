@@ -1,6 +1,4 @@
 node_modules/
-config/tokens.json
-config/database.json
 *.log
 .env
 .DS_Store
