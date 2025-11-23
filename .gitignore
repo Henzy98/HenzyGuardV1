@@ -1,0 +1,9 @@
+node_modules/
+config/tokens.json
+config/database.json
+*.log
+.env
+.DS_Store
+pm2-logs/
+*.log
+dist/*.log

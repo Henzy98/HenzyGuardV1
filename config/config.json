@@ -1,0 +1,47 @@
+{
+    "guildId": "SUNUCU-ID",
+    "guildName": "SUNUCU-ADI",
+    "logChannels": {
+        "category": "Server-Logs",
+        "guardLogs": "guard-logs",
+        "messageLogs": "message-logs",
+        "modLogs": "mod-logs",
+        "securityLogs": "security-logs",
+        "roleLogs": "role-logs",
+        "channelLogs": "channel-logs"
+    },
+    "sleepMode": {
+        "sleepRoleName": "Uyku",
+        "inactiveDays": 7
+    },
+    "voiceChannel": {
+        "channelId": "SES-KANAL-ID",
+        "enabled": true
+    },
+    "punishment": {
+        "type": "quarantine",
+        "quarantineRoleName": "Karantina"
+    },
+    "spam": {
+        "maxMessagesPerMinute": 10,
+        "urlShorteners": [
+            "bit.ly",
+            "tinyurl.com",
+            "goo.gl",
+            "ow.ly",
+            "t.co",
+            "cutt.ly"
+        ],
+        "suspiciousKeywords": [
+            "nitro",
+            "free",
+            "gift",
+            "giveaway"
+        ],
+        "discordInvitePatterns": [
+            "discord.gg/",
+            "discord.com/invite/",
+            "discordapp.com/invite/"
+        ]
+    }
+}
