@@ -10,7 +10,8 @@ Discord sunucuları için geliştirilmiş profesyonel koruma sistemi. 5 ayrı bo
 - **Spam Koruması** - Reklam ve spam mesajları otomatik tespit eder
 - **Whitelist Sistemi** - Güvenilir kullanıcılar için beyaz liste
 - **Esnek Ceza Sistemi** - Karantina, Kick veya Ban seçenekleri
-- **Sleep Mode** - 7 gün aktif olmayan whitelist kullanıcılarını otomatik "Uyku" moduna alır
+- **Sleep Mode** - Whitelist kullanıcıları çevrimdışı olunca otomatik "Uyku" moduna alır
+- **Ses Kanalı Entegrasyonu** - Botlar belirtilen ses kanalında sürekli aktif kalır
 - **PM2 Entegrasyonu** - Otomatik yeniden başlatma ve log yönetimi
 
 ## Gereksinimler
@@ -64,6 +65,24 @@ npm install
   "guildName": "Sunucu_Adı_Buraya"
 }
 ```
+
+#### Ses Kanalı Ayarları (Opsiyonel)
+`config/config.json` dosyasında ses kanalı ID'sini ayarlayın:
+```json
+{
+  "voiceChannel": {
+    "channelId": "SES_KANAL_ID_BURAYA",
+    "enabled": true
+  }
+}
+```
+
+**Ses Kanal ID nasıl alınır:**
+1. Discord → Ayarlar → Gelişmiş → Geliştirici Modu'nu aç
+2. Ses kanalına sağ tık → ID'yi Kopyala
+3. Config'e yapıştır
+
+Botlar bu kanala bağlanacak ve sürekli aktif kalacak (mikrofon açık, kulaklık kapalı).
 
 #### Database Ayarları
 `config/database.json` dosyası oluşturun:
@@ -168,7 +187,7 @@ pm2 delete all      # Tüm botları PM2'den kaldır
 2. **Otomatik Koruma**: Yetkisiz işlemler anında geri alınır
 3. **Ceza Sistemi**: Yetkisiz işlem yapan kullanıcılar otomatik cezalandırılır
 4. **Log Sistemi**: Tüm işlemler detaylı şekilde loglanır
-5. **Sleep Mode**: 7 gün aktif olmayan whitelist kullanıcıları "Uyku" rolüne alınır
+5. **Sleep Mode**: Whitelist kullanıcıları çevrimdışı olunca "Uyku" rolüne alınır, çevrimiçi olunca rolleri geri verilir
 
 ## Ceza Türleri
 

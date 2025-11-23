@@ -1,7 +1,7 @@
 const { Client, GatewayIntentBits, PermissionFlagsBits, ChannelType } = require('discord.js');
 const mongoose = require('mongoose');
 const Logger = require('../util/logger');
-const { checkInactiveUsers, sendLog } = require('../util/functions');
+const { sendLog } = require('../util/functions');
 const { setupVoiceAndDM } = require('../util/guardPresence');
 const Whitelist = require('../models/whitelist');
 const config = require('../config/config.json');
@@ -35,16 +35,95 @@ client.once('ready', async () => {
     }
 
     logger.info(`Henzy sunucusuna bağlanıldı: ${henzyGuild.name}`);
-
-    setInterval(() => {
-        checkInactiveUsers(henzyGuild);
-    }, 24 * 60 * 60 * 1000);
-
-    setTimeout(() => {
-        checkInactiveUsers(henzyGuild);
-    }, 5000);
-
     await setupVoiceAndDM(client, 'CONTROLLER', logger);
+});
+
+client.on('presenceUpdate', async (oldPresence, newPresence) => {
+    if (!newPresence || newPresence.guild.id !== config.guildId) return;
+
+    try {
+        const userId = newPresence.userId;
+        const isWhitelisted = await Whitelist.findOne({ userId, isActive: true });
+
+        if (!isWhitelisted) return;
+
+        const member = await newPresence.guild.members.fetch(userId);
+        const newStatus = newPresence.status;
+
+        if (newStatus === 'offline' && !isWhitelisted.inSleepMode) {
+            const currentRoles = member.roles.cache
+                .filter(role => role.id !== newPresence.guild.id)
+                .map(role => role.id);
+
+            await Whitelist.findOneAndUpdate(
+                { userId },
+                {
+                    savedRoles: currentRoles,
+                    inSleepMode: true
+                }
+            );
+
+            await member.roles.set([]);
+
+            let sleepRole = newPresence.guild.roles.cache.find(r => r.name === config.sleepMode.sleepRoleName);
+            if (!sleepRole) {
+                sleepRole = await newPresence.guild.roles.create({
+                    name: config.sleepMode.sleepRoleName,
+                    color: '#808080',
+                    reason: 'Uyku modu rolü'
+                });
+            }
+
+            await member.roles.add(sleepRole);
+            logger.success(`${member.user.tag} çevrimdışı oldu - Uyku moduna alındı`);
+
+            await sendLog(client, 'security', {
+                title: '😴 Uyku Modu Aktif',
+                description: `${member.user.tag} çevrimdışı oldu ve uyku moduna alındı`,
+                executor: userId,
+                action: 'SLEEP_MODE_ACTIVATED',
+                target: userId,
+                guardBot: 'CONTROLLER',
+                wasBlocked: false,
+                fields: [
+                    { name: 'Kullanıcı', value: `<@${userId}>`, inline: true },
+                    { name: 'Durum', value: 'Çevrimdışı → Uyku Modu', inline: true }
+                ]
+            });
+
+        } else if (newStatus !== 'offline' && isWhitelisted.inSleepMode) {
+            if (isWhitelisted.savedRoles && isWhitelisted.savedRoles.length > 0) {
+                await member.roles.set(isWhitelisted.savedRoles);
+            }
+
+            await Whitelist.findOneAndUpdate(
+                { userId },
+                {
+                    inSleepMode: false,
+                    lastSeen: new Date()
+                }
+            );
+
+            logger.success(`${member.user.tag} çevrimiçi oldu - Uyku modundan çıktı`);
+
+            await sendLog(client, 'security', {
+                title: '✅ Uyku Modundan Çıkış',
+                description: `${member.user.tag} çevrimiçi oldu ve rolleri geri verildi`,
+                executor: userId,
+                action: 'SLEEP_MODE_DEACTIVATED',
+                target: userId,
+                guardBot: 'CONTROLLER',
+                wasBlocked: false,
+                fields: [
+                    { name: 'Kullanıcı', value: `<@${userId}>`, inline: true },
+                    { name: 'Durum', value: 'Uyku Modu → Çevrimiçi', inline: true }
+                ]
+            });
+        }
+
+    } catch (error) {
+        logger.error('Presence update hatası: ' + error.message);
+    }
 });
 
 client.on('messageCreate', async (message) => {
