@@ -4,11 +4,12 @@ const logSchema = new mongoose.Schema({
     type: {
         type: String,
         required: true,
-        enum: ['ban', 'channel', 'role', 'spam', 'permission', 'bot_add', 'security']
+        enum: ['ban', 'channel', 'role', 'spam', 'permission', 'bot_add', 'security', 'backup']
     },
     executor: {
         type: String,
-        required: true
+        required: false,
+        default: null
     },
     action: {
         type: String,

@@ -1,14 +1,3 @@
-const { Client, GatewayIntentBits } = require('discord.js');
-const mongoose = require('mongoose');
-const Logger = require('../util/logger');
-const { sendLog } = require('../util/functions');
-const { setupVoiceAndDM } = require('../util/guardPresence');
-const config = require('../config/config.json');
-const dbConfig = require('../config/database.json');
-const tokens = require('../config/tokens.json');
-
-const logger = new Logger('GUARD4-SPAM');
-
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -29,7 +18,7 @@ const urlRegex = /(https?:\/\/[^\s]+)/gi;
 const discordInviteRegex = /(discord\.(gg|io|me|li)|discordapp\.com\/invite|discord\.com\/invite)\/[a-zA-Z0-9]+/gi;
 
 function containsDiscordInvite(content) {
-    for (const pattern of config.spam.discordInvitePatterns) {
+    for (const pattern of henzy.spam.discordInvitePatterns) {
         if (content.toLowerCase().includes(pattern.toLowerCase())) {
             return true;
         }
@@ -42,7 +31,7 @@ function containsURLShortener(content) {
     if (!urls) return false;
 
     for (const url of urls) {
-        for (const shortener of config.spam.urlShorteners) {
+        for (const shortener of henzy.spam.urlShorteners) {
             if (url.toLowerCase().includes(shortener)) {
                 return true;
             }
@@ -52,7 +41,7 @@ function containsURLShortener(content) {
 }
 
 function containsSuspiciousKeywords(content) {
-    for (const keyword of config.spam.suspiciousKeywords) {
+    for (const keyword of henzy.spam.suspiciousKeywords) {
         if (content.toLowerCase().includes(keyword.toLowerCase())) {
             return true;
         }
@@ -69,7 +58,7 @@ function isSpam(userId, content) {
 
     userMessageMap.set(userId, recentMessages);
 
-    if (recentMessages.length > config.spam.maxMessagesPerMinute) {
+    if (recentMessages.length > henzy.spam.maxMessagesPerMinute) {
         return { isSpam: true, reason: 'Dakikada çok fazla mesaj' };
     }
 
@@ -83,7 +72,7 @@ function isSpam(userId, content) {
 
 async function checkMessage(message, isEdit = false) {
     if (message.author.bot) return;
-    if (message.guild.name !== config.guildName || message.guild.id !== config.guildId) return;
+    if (message.guild.name !== henzy.guildName || message.guild.id !== henzy.guildId) return;
     if (message.member.permissions.has('Administrator')) return;
 
     const content = message.content;

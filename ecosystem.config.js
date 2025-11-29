@@ -54,7 +54,7 @@ module.exports = {
         },
         {
             name: 'henzy-dist',
-            script: './guards/guard4-spam.js',
+            script: './guards/dist-backup.js',
             instances: 1,
             autorestart: true,
             watch: false,

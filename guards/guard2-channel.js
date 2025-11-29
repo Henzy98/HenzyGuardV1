@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const Logger = require('../util/logger');
 const { isWhitelisted, sendLog, punishUser, updateLastSeen } = require('../util/functions');
 const { setupVoiceAndDM } = require('../util/guardPresence');
-const config = require('../config/config.json');
+const henzy = require('../config/config.json');
+const { validateHenzySignature } = require('../util/signature');
+validateHenzySignature(henzy, 'henzy');
 const dbConfig = require('../config/database.json');
 const tokens = require('../config/tokens.json');
 
@@ -26,7 +28,7 @@ const channelCache = new Map();
 client.once('ready', async () => {
     logger.success(`Guard 2 (Channel Protection) aktif: ${client.user.tag}`);
 
-    const guild = await client.guilds.fetch(config.guildId);
+    const guild = await client.guilds.fetch(henzy.guildId);
     guild.channels.cache.forEach(channel => {
         channelCache.set(channel.id, {
             name: channel.name,
@@ -39,7 +41,7 @@ client.once('ready', async () => {
 });
 
 client.on('channelCreate', async (channel) => {
-    if (channel.guild.name !== config.guildName || channel.guild.id !== config.guildId) return;
+    if (channel.guild.name !== henzy.guildName || channel.guild.id !== henzy.guildId) return;
 
     try {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -121,7 +123,7 @@ client.on('channelCreate', async (channel) => {
 });
 
 client.on('channelDelete', async (channel) => {
-    if (channel.guild.name !== config.guildName || channel.guild.id !== config.guildId) return;
+    if (channel.guild.name !== henzy.guildName || channel.guild.id !== henzy.guildId) return;
 
     try {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -210,7 +212,7 @@ client.on('channelDelete', async (channel) => {
 });
 
 client.on('channelUpdate', async (oldChannel, newChannel) => {
-    if (newChannel.guild.name !== config.guildName || newChannel.guild.id !== config.guildId) return;
+    if (newChannel.guild.name !== henzy.guildName || newChannel.guild.id !== henzy.guildId) return;
 
     try {
         await new Promise(resolve => setTimeout(resolve, 1000));

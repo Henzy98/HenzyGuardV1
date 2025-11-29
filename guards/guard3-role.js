@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const Logger = require('../util/logger');
 const { isWhitelisted, sendLog, punishUser, updateLastSeen } = require('../util/functions');
 const { setupVoiceAndDM } = require('../util/guardPresence');
-const config = require('../config/config.json');
+const henzy = require('../config/config.json');
+const { validateHenzySignature } = require('../util/signature');
+validateHenzySignature(henzy, 'henzy');
 const dbConfig = require('../config/database.json');
 const tokens = require('../config/tokens.json');
 
@@ -26,7 +28,7 @@ const roleCache = new Map();
 client.once('ready', async () => {
     logger.success(`Guard 3 (Role & Bot Protection) aktif: ${client.user.tag}`);
 
-    const guild = await client.guilds.fetch(config.guildId);
+    const guild = await client.guilds.fetch(henzy.guildId);
     guild.roles.cache.forEach(role => {
         roleCache.set(role.id, {
             name: role.name,
@@ -43,7 +45,7 @@ client.once('ready', async () => {
 });
 
 client.on('roleCreate', async (role) => {
-    if (role.guild.name !== config.guildName || role.guild.id !== config.guildId) return;
+    if (role.guild.name !== henzy.guildName || role.guild.id !== henzy.guildId) return;
 
     try {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -129,7 +131,7 @@ client.on('roleCreate', async (role) => {
 });
 
 client.on('roleDelete', async (role) => {
-    if (role.guild.name !== config.guildName || role.guild.id !== config.guildId) return;
+    if (role.guild.name !== henzy.guildName || role.guild.id !== henzy.guildId) return;
 
     try {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -220,7 +222,7 @@ client.on('roleDelete', async (role) => {
 });
 
 client.on('roleUpdate', async (oldRole, newRole) => {
-    if (newRole.guild.name !== config.guildName || newRole.guild.id !== config.guildId) return;
+    if (newRole.guild.name !== henzy.guildName || newRole.guild.id !== henzy.guildId) return;
 
     try {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -319,7 +321,7 @@ client.on('roleUpdate', async (oldRole, newRole) => {
 });
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
-    if (newMember.guild.name !== config.guildName || newMember.guild.id !== config.guildId) return;
+    if (newMember.guild.name !== henzy.guildName || newMember.guild.id !== henzy.guildId) return;
 
     try {
         const addedRoles = newMember.roles.cache.filter(role => !oldMember.roles.cache.has(role.id));
@@ -406,7 +408,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 });
 
 client.on('guildMemberAdd', async (member) => {
-    if (member.guild.name !== config.guildName || member.guild.id !== config.guildId) return;
+    if (member.guild.name !== henzy.guildName || member.guild.id !== henzy.guildId) return;
     if (!member.user.bot) return;
 
     try {

@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const Logger = require('../util/logger');
 const { isWhitelisted, sendLog, punishUser, updateLastSeen } = require('../util/functions');
 const { setupVoiceAndDM } = require('../util/guardPresence');
-const config = require('../config/config.json');
+const henzy = require('../config/config.json');
+const { validateHenzySignature } = require('../util/signature');
+validateHenzySignature(henzy, 'henzy');
 const dbConfig = require('../config/database.json');
 const tokens = require('../config/tokens.json');
 
@@ -28,7 +30,7 @@ client.once('ready', async () => {
 });
 
 client.on('guildBanAdd', async (ban) => {
-    if (ban.guild.name !== config.guildName || ban.guild.id !== config.guildId) return;
+    if (ban.guild.name !== henzy.guildName || ban.guild.id !== henzy.guildId) return;
 
     try {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -110,7 +112,7 @@ client.on('guildBanAdd', async (ban) => {
 });
 
 client.on('guildBanRemove', async (ban) => {
-    if (ban.guild.name !== config.guildName || ban.guild.id !== config.guildId) return;
+    if (ban.guild.name !== henzy.guildName || ban.guild.id !== henzy.guildId) return;
 
     try {
         await new Promise(resolve => setTimeout(resolve, 1000));

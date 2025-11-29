@@ -1,4 +1,6 @@
 {
+    "_henzySignature": "HENZY_GUARD_FRAMEWORK_V1_PROTECTED",
+    "_requireHenzyVar": true,
     "guildId": "SUNUCU-ID",
     "guildName": "SUNUCU-ADI",
     "logChannels": {
@@ -15,12 +17,20 @@
         "inactiveDays": 7
     },
     "voiceChannel": {
-        "channelId": "SES-KANAL-ID",
+        "channelId": "SES-KANALI-ID",
         "enabled": true
     },
     "punishment": {
         "type": "quarantine",
         "quarantineRoleName": "Karantina"
+    },
+    "rateLimit": {
+        "enabled": true,
+        "timeWindowMinutes": 10,
+        "maxBans": 3,
+        "maxKicks": 5,
+        "maxRoleChanges": 10,
+        "maxChannelChanges": 5
     },
     "spam": {
         "maxMessagesPerMinute": 10,
@@ -43,5 +53,12 @@
             "discord.com/invite/",
             "discordapp.com/invite/"
         ]
+    },
+    "backup": {
+        "enabled": true,
+        "intervalMinutes": 2,
+        "backupLogChannel": "backup-logs",
+        "backupFolder": "./backups",
+        "maxBackups": 50
     }
 }

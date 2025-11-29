@@ -1,6 +1,6 @@
 {
   "name": "henzy-guard-framework",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Multi-bot Discord security framework for Henzy guild",
   "main": "index.js",
   "scripts": {

@@ -1,5 +1,5 @@
 {
-    "uri": "mongodb://127.0.0.1/henzy",
+    "uri": "MONGODB-URL",
     "options": {
         "useNewUrlParser": true,
         "useUnifiedTopology": true

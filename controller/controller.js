@@ -1,10 +1,12 @@
 const { Client, GatewayIntentBits, PermissionFlagsBits, ChannelType } = require('discord.js');
 const mongoose = require('mongoose');
 const Logger = require('../util/logger');
-const { sendLog } = require('../util/functions');
+const { sendLog, updateLastSeen } = require('../util/functions');
 const { setupVoiceAndDM } = require('../util/guardPresence');
 const Whitelist = require('../models/whitelist');
-const config = require('../config/config.json');
+const henzy = require('../config/config.json');
+const { validateHenzySignature } = require('../util/signature');
+validateHenzySignature(henzy, 'henzy');
 const dbConfig = require('../config/database.json');
 const tokens = require('../config/tokens.json');
 
@@ -28,7 +30,7 @@ mongoose.connect(dbConfig.uri, dbConfig.options)
 client.once('ready', async () => {
     logger.success(`Controller bot aktif: ${client.user.tag}`);
 
-    const henzyGuild = client.guilds.cache.find(g => g.name === config.guildName && g.id === config.guildId);
+    const henzyGuild = client.guilds.cache.find(g => g.name === henzy.guildName && g.id === henzy.guildId);
     if (!henzyGuild) {
         logger.error('Henzy sunucusu bulunamadı! Guild ID ve ismi kontrol edin.');
         process.exit(1);
@@ -39,18 +41,28 @@ client.once('ready', async () => {
 });
 
 client.on('presenceUpdate', async (oldPresence, newPresence) => {
-    if (!newPresence || newPresence.guild.id !== config.guildId) return;
+    if (!newPresence || newPresence.guild.id !== henzy.guildId) return;
 
     try {
         const userId = newPresence.userId;
-        const isWhitelisted = await Whitelist.findOne({ userId, isActive: true });
+        await updateLastSeen(userId);
 
-        if (!isWhitelisted) return;
+        const whitelistEntry = await Whitelist.findOne({ userId, isActive: true });
+        if (!whitelistEntry) return;
 
         const member = await newPresence.guild.members.fetch(userId);
         const newStatus = newPresence.status;
 
-        if (newStatus === 'offline' && !isWhitelisted.inSleepMode) {
+        if (newStatus === 'offline' && !whitelistEntry.inSleepMode) {
+            const botMember = newPresence.guild.members.me;
+            const botHighestRole = botMember.roles.highest;
+            const memberHighestRole = member.roles.highest;
+
+            if (memberHighestRole.position >= botHighestRole.position) {
+                logger.warn(`Uyku modu atlanamadı: ${member.user.tag} - Bot yetkisi yetersiz`);
+                return;
+            }
+
             const currentRoles = member.roles.cache
                 .filter(role => role.id !== newPresence.guild.id)
                 .map(role => role.id);
@@ -63,60 +75,64 @@ client.on('presenceUpdate', async (oldPresence, newPresence) => {
                 }
             );
 
-            await member.roles.set([]);
-
-            let sleepRole = newPresence.guild.roles.cache.find(r => r.name === config.sleepMode.sleepRoleName);
+            let sleepRole = newPresence.guild.roles.cache.find(r => r.name === henzy.sleepMode.sleepRoleName);
             if (!sleepRole) {
                 sleepRole = await newPresence.guild.roles.create({
-                    name: config.sleepMode.sleepRoleName,
+                    name: henzy.sleepMode.sleepRoleName,
                     color: '#808080',
                     reason: 'Uyku modu rolü'
                 });
             }
 
-            await member.roles.add(sleepRole);
-            logger.success(`${member.user.tag} çevrimdışı oldu - Uyku moduna alındı`);
+            await member.roles.set([sleepRole.id]);
+
+            logger.info(`${member.user.tag} offline oldu - Uyku moduna alındı`);
 
             await sendLog(client, 'security', {
                 title: '😴 Uyku Modu Aktif',
-                description: `${member.user.tag} çevrimdışı oldu ve uyku moduna alındı`,
+                description: `Whitelist kullanıcısı offline oldu`,
                 executor: userId,
-                action: 'SLEEP_MODE_ACTIVATED',
+                action: 'SLEEP_MODE_ACTIVATED_OFFLINE',
                 target: userId,
                 guardBot: 'CONTROLLER',
                 wasBlocked: false,
                 fields: [
                     { name: 'Kullanıcı', value: `<@${userId}>`, inline: true },
-                    { name: 'Durum', value: 'Çevrimdışı → Uyku Modu', inline: true }
+                    { name: 'Kaydedilen Roller', value: `${currentRoles.length} rol`, inline: true }
                 ]
             });
 
-        } else if (newStatus !== 'offline' && isWhitelisted.inSleepMode) {
-            if (isWhitelisted.savedRoles && isWhitelisted.savedRoles.length > 0) {
-                await member.roles.set(isWhitelisted.savedRoles);
+        } else if (newStatus !== 'offline' && whitelistEntry.inSleepMode) {
+            const rolesToRestore = whitelistEntry.savedRoles.filter(roleId => {
+                return newPresence.guild.roles.cache.has(roleId);
+            });
+
+            if (rolesToRestore.length > 0) {
+                await member.roles.add(rolesToRestore);
+                logger.success(`${member.user.tag} online oldu - Rolleri geri yüklendi (${rolesToRestore.length} rol)`);
             }
 
             await Whitelist.findOneAndUpdate(
                 { userId },
                 {
                     inSleepMode: false,
-                    lastSeen: new Date()
+                    savedRoles: []
                 }
             );
 
-            logger.success(`${member.user.tag} çevrimiçi oldu - Uyku modundan çıktı`);
+            logger.info(`Kullanıcı uyku modundan çıkarıldı: ${userId}`);
 
             await sendLog(client, 'security', {
-                title: '✅ Uyku Modundan Çıkış',
-                description: `${member.user.tag} çevrimiçi oldu ve rolleri geri verildi`,
+                title: '🎉 Uyku Modundan Çıkıldı',
+                description: `Whitelist kullanıcısı online oldu, rolleri geri yüklendi`,
                 executor: userId,
-                action: 'SLEEP_MODE_DEACTIVATED',
+                action: 'SLEEP_MODE_DEACTIVATED_ONLINE',
                 target: userId,
                 guardBot: 'CONTROLLER',
                 wasBlocked: false,
                 fields: [
                     { name: 'Kullanıcı', value: `<@${userId}>`, inline: true },
-                    { name: 'Durum', value: 'Uyku Modu → Çevrimiçi', inline: true }
+                    { name: 'Geri Yüklenen Roller', value: `${rolesToRestore.length} rol`, inline: true }
                 ]
             });
         }
@@ -126,9 +142,95 @@ client.on('presenceUpdate', async (oldPresence, newPresence) => {
     }
 });
 
+client.on('guildMemberRemove', async (member) => {
+    if (member.guild.id !== henzy.guildId) return;
+
+    try {
+        const whitelistEntry = await Whitelist.findOne({ userId: member.id, isActive: true });
+
+        if (!whitelistEntry) return;
+
+        const currentRoles = member.roles.cache
+            .filter(role => role.id !== member.guild.id)
+            .map(role => role.id);
+
+        await Whitelist.findOneAndUpdate(
+            { userId: member.id },
+            {
+                savedRoles: currentRoles,
+                inSleepMode: true
+            }
+        );
+
+        logger.info(`Whitelist kullanıcısı sunucudan ayrıldı, uyku moduna alındı: ${member.user.tag}`);
+
+        await sendLog(client, 'security', {
+            title: '😴 Uyku Modu Aktif',
+            description: `Whitelist kullanıcısı sunucudan ayrıldı`,
+            executor: member.id,
+            action: 'SLEEP_MODE_ACTIVATED_LEAVE',
+            target: member.id,
+            guardBot: 'CONTROLLER',
+            wasBlocked: false,
+            fields: [
+                { name: 'Kullanıcı', value: `<@${member.id}>`, inline: true },
+                { name: 'Kaydedilen Roller', value: `${currentRoles.length} rol`, inline: true }
+            ]
+        });
+
+    } catch (error) {
+        logger.error('GuildMemberRemove hatası: ' + error.message);
+    }
+});
+
+client.on('guildMemberAdd', async (member) => {
+    if (member.guild.id !== henzy.guildId) return;
+
+    try {
+        const whitelistEntry = await Whitelist.findOne({ userId: member.id, isActive: true, inSleepMode: true });
+
+        if (!whitelistEntry || !whitelistEntry.savedRoles || whitelistEntry.savedRoles.length === 0) return;
+
+        const rolesToRestore = whitelistEntry.savedRoles.filter(roleId => {
+            return member.guild.roles.cache.has(roleId);
+        });
+
+        if (rolesToRestore.length > 0) {
+            await member.roles.add(rolesToRestore);
+            logger.success(`Kullanıcının rolleri geri yüklendi: ${member.user.tag} (${rolesToRestore.length} rol)`);
+        }
+
+        await Whitelist.findOneAndUpdate(
+            { userId: member.id },
+            {
+                inSleepMode: false,
+                savedRoles: []
+            }
+        );
+
+        await sendLog(client, 'security', {
+            title: '🎉 Uyku Modundan Çıkıldı',
+            description: `Whitelist kullanıcısı geri döndü, rolleri geri yüklendi`,
+            executor: member.id,
+            action: 'SLEEP_MODE_DEACTIVATED_REJOIN',
+            target: member.id,
+            guardBot: 'CONTROLLER',
+            wasBlocked: false,
+            fields: [
+                { name: 'Kullanıcı', value: `<@${member.id}>`, inline: true },
+                { name: 'Geri Yüklenen Roller', value: `${rolesToRestore.length} rol`, inline: true }
+            ]
+        });
+
+    } catch (error) {
+        logger.error('GuildMemberAdd hatası: ' + error.message);
+    }
+});
+
+
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
-    if (message.guild.name !== config.guildName || message.guild.id !== config.guildId) return;
+    if (message.guild.name !== henzy.guildName || message.guild.id !== henzy.guildId) return;
 
     if (message.content === '.setup') {
         if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -139,12 +241,12 @@ client.on('messageCreate', async (message) => {
             logger.info('Setup komutu çalıştırılıyor...');
 
             let category = message.guild.channels.cache.find(
-                c => c.type === ChannelType.GuildCategory && c.name === config.logChannels.category
+                c => c.type === ChannelType.GuildCategory && c.name === henzy.logChannels.category
             );
 
             if (!category) {
                 category = await message.guild.channels.create({
-                    name: config.logChannels.category,
+                    name: henzy.logChannels.category,
                     type: ChannelType.GuildCategory,
                     permissionOverwrites: [
                         {
@@ -159,12 +261,13 @@ client.on('messageCreate', async (message) => {
             }
 
             const channelNames = [
-                config.logChannels.guardLogs,
-                config.logChannels.messageLogs,
-                config.logChannels.modLogs,
-                config.logChannels.securityLogs,
-                config.logChannels.roleLogs,
-                config.logChannels.channelLogs
+                henzy.logChannels.guardLogs,
+                henzy.logChannels.messageLogs,
+                henzy.logChannels.modLogs,
+                henzy.logChannels.securityLogs,
+                henzy.logChannels.roleLogs,
+                henzy.logChannels.channelLogs,
+                henzy.backup.backupLogChannel
             ];
 
             for (const channelName of channelNames) {
@@ -205,7 +308,7 @@ client.on('messageCreate', async (message) => {
 
     if (message.content === '.yardım' || message.content === '.help') {
         const embed = {
-            color: 0x00ff00,
+            color: 0x2ecc71,
             title: '📋 Henzy Guard - Komut Listesi',
             description: 'Tüm mevcut komutlar:',
             fields: [
@@ -235,12 +338,19 @@ client.on('messageCreate', async (message) => {
                     inline: false
                 },
                 {
+                    name: '💾 Backup Yönetimi',
+                    value: '`.backup` veya `.backup al` - Manuel yedek alır (Admin)\n' +
+                        '`.backup liste` - Tüm yedekleri listeler (Admin)\n' +
+                        '`.backup yükle <backup_id>` - Yedeği yükler (Owner)',
+                    inline: false
+                },
+                {
                     name: 'ℹ️ Bilgi',
                     value: '`.yardım` veya `.help` - Bu mesajı gösterir',
                     inline: false
                 }
             ],
-            footer: { text: 'Henzy Guard Framework v1.0' },
+            footer: { text: 'Henzy Guard Framework v1.1.0 - bugün saat 19:15' },
             timestamp: new Date()
         };
 
@@ -455,7 +565,7 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('presenceUpdate', async (oldPresence, newPresence) => {
-    if (!newPresence || newPresence.guild.name !== config.guildName || newPresence.guild.id !== config.guildId) return;
+    if (!newPresence || newPresence.guild.name !== henzy.guildName || newPresence.guild.id !== henzy.guildId) return;
 
     const whitelistUser = await Whitelist.findOne({ userId: newPresence.userId });
 
@@ -463,7 +573,7 @@ client.on('presenceUpdate', async (oldPresence, newPresence) => {
         if (whitelistUser.inSleepMode) {
             const member = await newPresence.guild.members.fetch(newPresence.userId);
 
-            const sleepRole = newPresence.guild.roles.cache.find(r => r.name === config.sleepMode.sleepRoleName);
+            const sleepRole = newPresence.guild.roles.cache.find(r => r.name === henzy.sleepMode.sleepRoleName);
             if (sleepRole) {
                 await member.roles.remove(sleepRole);
             }
